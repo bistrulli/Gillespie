@@ -51,7 +51,7 @@ function [ t, x ] = directMethod( stoich_matrix, propensity_fcn, tspan, x0,...
 %   Created: 2012-01-19
 
 if ~exist('MAX_OUTPUT_LENGTH','var')
-    MAX_OUTPUT_LENGTH = 1000000;
+    MAX_OUTPUT_LENGTH = 10000000;
 end
 if ~exist('output_fcn', 'var')
     output_fcn = [];
@@ -80,17 +80,17 @@ while T(rxn_count) < tspan(2)
     tau = -log(r(1))/a0; %(1/a0)*log(1/r(1));
     
     % Sample identity of earliest reaction channel to fire (mu)
-    [~, mu] = histc(r(2)*a0, [0;cumsum(a(:))]); 
+    %[~, mu] = histc(r(2)*a0, [0;cumsum(a(:))]); 
     
     % ...alternatively...
     %mu = find((cumsum(a) >= r(2)*a0), 1,'first');
     
     % ...or...
-    %mu=1; s=a(1); r0=r(2)*a0;
-    %while s < r0
-    %   mu = mu + 1;
-    %   s = s + a(mu);
-    %end
+    mu=1; s=a(1); r0=r(2)*a0;
+    while s < r0
+      mu = mu + 1;
+      s = s + a(mu);
+    end
 
     if rxn_count + 1 > MAX_OUTPUT_LENGTH
         t = T(1:rxn_count);

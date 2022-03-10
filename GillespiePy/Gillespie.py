@@ -6,6 +6,8 @@ Created on 13 dic 2021
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+import scipy.stats as st
 
 
 def  directMethod(stoich_matrix, propensity_fcn, tspan, x0, params=None, output_fcn=None, MAX_OUTPUT_LENGTH=None):
@@ -85,12 +87,15 @@ def  directMethod(stoich_matrix, propensity_fcn, tspan, x0, params=None, output_
         #     end 
         # end
     
-    t = T[0:rxn_count];
-    x = X[0:rxn_count,:];
+    
+    t = T[0:rxn_count+1];
+    x = X[0:rxn_count+1,:];
+    
     if t[-1] > tspan[1]:
         t[-1] = tspan[1]
         x[-1,:] = X[rxn_count-1,:]
-        
+    
+    
     return [t,x]
         
 if __name__ == '__main__':
@@ -103,8 +108,8 @@ if __name__ == '__main__':
     
     prop=lambda x,p:np.array([0,0,0,0])
     
-    p={"MU":np.matrix([1,1,1]),
-       "S":np.matrix([1000000,1,1]),
+    p={"MU":np.matrix([1,2,2]),
+       "S":np.matrix([np.infty,1,1]),
        "P":np.matrix([[0,0.5,0.5],
                      [1,0,0],
                      [1,0,0]])}
@@ -113,10 +118,33 @@ if __name__ == '__main__':
                      p["P"][0,2]*p["MU"][0,0]*np.minimum(x[0],p["S"][0,0]),
                      p["P"][1,0]*p["MU"][0,1]*np.minimum(x[1],p["S"][0,1]),
                      p["P"][2,0]*p["MU"][0,2]*np.minimum(x[2],p["S"][0,2])]
+
+    e=np.infty
     
+    #dimensione di un batch
+    K=30
+    #numrto di batch
+    N=30
+    B=[]
+    dt=0.1
+    x0=[100,0,0]
+    while(e>0.5*(10**-1)):
+        [t,x]=directMethod(stoich_matrix=sm, propensity_fcn=prop, tspan=[0,K*(N+1)*dt], x0=x0, params=p)
+        td = pd.Series(index=[pd.Timedelta(value=t[i,0],unit="sec") for i in range(t.shape[0])],data=x[:,0])
+        td=td.resample('%.3fS'%(dt)).fillna(method="ffill")
+        x0=x[-1,:]
+        
+        X=td.to_numpy()
+        
+        if(len(B)>0):
+            B=np.vstack((B,np.array([X[K*n:K*(n+1)] for n in range(N+1)])))
+        else:
+            B=np.array([X[K*n:K*(n+1)] for n in range(N+1)])
+
+        Bm=np.mean(B,axis=1,keepdims=True)
+        CI=st.t.interval(0.95, len(Bm[1:])-1, loc=np.mean(Bm[1:]), scale=st.sem(Bm[1:]))
+        e=abs(np.mean(Bm[1:])-CI[0])
+            
+        print(e)
     
-    
-    [t,x]=directMethod(stoich_matrix=sm, propensity_fcn=prop, tspan=[0,100], x0=np.matrix([100,0,0]), params=p)
-    
-    plt.step(t,x)
-    plt.show()
+    print(CI[0],np.mean(Bm[1:]),CI[1])
